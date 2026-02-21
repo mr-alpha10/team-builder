@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import api from '../api/axiosClient'
 
 export default function Profile() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [user, setUser] = useState(null)
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({})
   const [msg, setMsg] = useState('')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteError, setDeleteError] = useState('')
+  const [deleting, setDeleting] = useState(false)
 
   const currentUser = JSON.parse(localStorage.getItem('user') || '{}')
   const isOwn = !id || id === currentUser.id
@@ -28,6 +33,28 @@ export default function Profile() {
       setMsg('Saved!')
       setTimeout(() => setMsg(''), 2000)
     } catch { setMsg('Failed to save') }
+  }
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true)
+    setDeleteError('')
+
+    try {
+      const payload = user.googleId ? {} : { password: deletePassword }
+      
+      if (!user.googleId && !deletePassword.trim()) {
+        setDeleteError('Password is required')
+        setDeleting(false)
+        return
+      }
+
+      await api.delete('/users/me', { data: payload })
+      localStorage.clear()
+      window.location.href = '/login'
+    } catch (err) {
+      setDeleteError(err.response?.data?.error || 'Failed to delete account')
+      setDeleting(false)
+    }
   }
 
   if (!user) return <p className="muted">Loading...</p>
@@ -70,6 +97,10 @@ export default function Profile() {
             <button className="btn btn-primary" onClick={save}>Save</button>
             <button className="btn btn-outline" onClick={() => setEditing(false)}>Cancel</button>
           </div>
+          <div style={{ marginTop: 40, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+            <h3 style={{ color: 'var(--danger)', marginBottom: 10 }}>Danger Zone</h3>
+            <button className="btn" style={{ background: 'var(--danger)', color: 'white' }} onClick={() => setShowDeleteModal(true)}>Delete Account</button>
+          </div>
         </div>
       ) : (
         <>
@@ -91,6 +122,39 @@ export default function Profile() {
             </div>
           )}
         </>
+      )}
+
+      {showDeleteModal && (
+        <div className="modal-overlay" onClick={() => setShowDeleteModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <h3 style={{ color: 'var(--danger)' }}>Delete Account</h3>
+            <p>This action cannot be undone. {user.googleId ? 'Click delete to confirm.' : 'Enter your password to confirm.'}</p>
+            {deleteError && <div className="alert alert-error">{deleteError}</div>}
+            {!user.googleId && (
+              <div className="form-group">
+                <label>Password</label>
+                <input
+                  type="password"
+                  value={deletePassword}
+                  onChange={e => setDeletePassword(e.target.value)}
+                  placeholder="Enter your password"
+                  disabled={deleting}
+                />
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <button
+                className="btn"
+                style={{ background: 'var(--danger)', color: 'white', flex: 1 }}
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting...' : 'Delete Account'}
+              </button>
+              <button className="btn btn-outline" onClick={() => setShowDeleteModal(false)} disabled={deleting}>Cancel</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

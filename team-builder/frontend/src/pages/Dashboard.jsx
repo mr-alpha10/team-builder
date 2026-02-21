@@ -11,7 +11,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     api.get('/projects').then(r => setProjects(r.data))
-    api.get('/users').then(r => setUsers(r.data))
+    api.get('/users').then(r => setUsers(r.data.users || []))
     api.get('/projects/user/mine').then(r => setMyProjects(r.data)).catch(() => {})
   }, [])
 
